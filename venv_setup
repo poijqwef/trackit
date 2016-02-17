@@ -12,6 +12,27 @@ if [ -n "$1" ]; then
         pip install -U sphinx
         pip install -U virtualenvwrapper
         pip install -U scikit-learn
-        pip install -U scikits.samplerate
+        pip install -U matplotlib
+
+        cd ~/Code/netcdf4-python
+        python setup.py build
+        python setup.py install
+        cd $hereDir
+
+    fi
+fi
+
+if [ -n "$1" ]; then
+    if [ "$1" == "remove" ]; then
+        pip uninstall setuptools
+        pip uninstall pandas
+        pip uninstall numpy
+        pip uninstall SciPy 
+        pip uninstall pyscaffold
+        pip uninstall wheel
+        pip uninstall sphinx
+        pip uninstall virtualenvwrapper
+        pip uninstall scikit-learn
+        pip uninstall netCDF4
     fi
 fi

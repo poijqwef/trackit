@@ -1,4 +1,13 @@
 # Add your requirements here like:
 # numpy
 # scipy>=0.9
-
+setuptools
+pandas
+numpy
+SciPy 
+pyscaffold
+wheel
+sphinx
+virtualenvwrapper
+scikit-learn
+netCDF4
