@@ -100,6 +100,9 @@ def _historical_tracks(args):
     maxdate = datetime.datetime.strptime(args.maxdate,'%Y-%m-%d')
     stormDays = 21
     maxWind = 100
+
+    cyclonesDates=[]
+    
     for istorm in range(time.shape[0]):
         stormDate = getDate(time[istorm,0])
         stormBasin = basins[basin[istorm,0]]
@@ -108,28 +111,23 @@ def _historical_tracks(args):
             for itime in range(len(time[istorm,:])):
                 old_wind = 0
                 if time[istorm,itime]:
+                    cyclonesDates.append(getDate(time[istorm,itime]))
                     #days = time[istorm,itime] - time[istorm,0]
                     #marker_color=str(days/stormDays)
                     if wind[istorm,itime]:
                         old_wind = wind[istorm,itime]
-                    marker_color = str(max(0.,1. - old_wind/maxWind))
-                    plt.plot(lon[istorm,itime],lat[istorm,itime],'.',color=marker_color)
+                    if args.plot:
+                        marker_color = str(max(0.,1. - old_wind/maxWind))
+                        plt.plot(lon[istorm,itime],lat[istorm,itime],'.',color=marker_color)
 
     ncf.close()
-    figFormat='png'
-    filename='-'.join([args.basin,args.mindate,args.maxdate])+'.'+figFormat
-    plt.title(filename+' - Ref. Wind for dot colors: '+str(maxWind))
-    plt.savefig(filename,format=figFormat,dpi=300)
+    if args.plot:
+        figFormat='png'
+        filename='-'.join([args.basin,args.mindate,args.maxdate])+'.'+figFormat
+        plt.title(filename+' - Ref. Wind for dot colors: '+str(maxWind))
+        plt.savefig(filename,format=figFormat,dpi=300)
 
-    #lats=ncf.variables['latitude'][:]
-    #lons=ncf.variables['longitude'][:]
-    #ncvar=ncf.variables['C3crop']
-    #data=ncvar[0,:,:]
-    #mask=np.ma.getmask(data)
-    #data[mask]=0.
-
-    return ncf
-
+    return cyclonesDates
 
 def parse_args(args):
     """
@@ -160,6 +158,7 @@ def parse_args(args):
     parser.add_argument('-mindate',default='2014-01-01',required=False)
     parser.add_argument('-maxdate',default='2016-12-31',required=False)
     parser.add_argument('-basin',default='West Pacific',required=False)
+    parser.add_argument('-plot',action='store_true',required=False)
     args = parser.parse_args(args)
     args.f = args.f or INPUT_FILE
     return args
@@ -169,7 +168,9 @@ def main(args):
     if args.a:
         _historical_tracks_attributes(args)
     else:
-        _historical_tracks(args)
+        cycloneDates = _historical_tracks(args)
+        print(sorted(cycloneDates))
+        print(len(cycloneDates))
 
     #_historical_tracks(args)
     _logger.info("Script ends here")
