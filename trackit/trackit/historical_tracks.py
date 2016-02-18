@@ -101,7 +101,7 @@ def _historical_tracks(args):
     stormDays = 21
     maxWind = 100
 
-    cyclonesDates=[]
+    cyclonesDates=dict()
     
     for istorm in range(time.shape[0]):
         stormDate = getDate(time[istorm,0])
@@ -111,7 +111,11 @@ def _historical_tracks(args):
             for itime in range(len(time[istorm,:])):
                 old_wind = 0
                 if time[istorm,itime]:
-                    cyclonesDates.append(getDate(time[istorm,itime]))
+                    idate=getDate(time[istorm,itime])
+                    if idate in cyclonesDates:
+                        cyclonesDates[idate]+=1
+                    else:
+                        cyclonesDates[idate]=1
                     #days = time[istorm,itime] - time[istorm,0]
                     #marker_color=str(days/stormDays)
                     if wind[istorm,itime]:
@@ -155,7 +159,7 @@ def parse_args(args):
         version='trackit {ver}'.format(ver=__version__))
     parser.add_argument('-a',action='store_true',required=False,help="input file attributes dump")
     parser.add_argument('-f',required=(INPUT_FILE == None),help="input file")
-    parser.add_argument('-mindate',default='2014-01-01',required=False)
+    parser.add_argument('-mindate',default='2013-01-01',required=False)
     parser.add_argument('-maxdate',default='2016-12-31',required=False)
     parser.add_argument('-basin',default='West Pacific',required=False)
     parser.add_argument('-plot',action='store_true',required=False)
@@ -169,8 +173,22 @@ def main(args):
         _historical_tracks_attributes(args)
     else:
         cycloneDates = _historical_tracks(args)
-        print(sorted(cycloneDates))
-        print(len(cycloneDates))
+        dates=[]
+        counts=[]
+        for i,iv in sorted(cycloneDates.items()):
+            dates.append(i)
+            counts.append(iv)
+        
+        plt.plot(dates,counts,'-')
+        locs,labels = plt.xticks()
+        plt.setp(labels,rotation=30)
+        axes = plt.gca()
+        axes.set_ylim([0,5])
+        figFormat='png'
+        filename='-'.join([args.basin,args.mindate,args.maxdate])+'.'+figFormat
+
+        plt.title(filename+' - Counts')
+        plt.savefig(filename,format=figFormat,dpi=300)
 
     #_historical_tracks(args)
     _logger.info("Script ends here")
