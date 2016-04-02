@@ -141,14 +141,16 @@ def parse_args(args):
     :return: command line parameters as :obj:`airgparse.Namespace`
     """
 
-    if os.path.exists('input.cfg'):
+    if os.path.exists('../input.cfg'):
         config = ConfigParser.ConfigParser()
-        config.readfp(open('input.cfg'))
+        config.readfp(open('../input.cfg'))
         INPUT_FILE = config.get('IO','input_file')
         INPUT_FILE_README = config.get('IO','input_file_readme')
     else:
         INPUT_FILE = None
         INPUT_FILE_README = None
+
+    print(INPUT_FILE)
 
     parser = argparse.ArgumentParser(
         description="Historical cyclones reader")
