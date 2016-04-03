@@ -15,6 +15,12 @@ import ConfigParser
 import numpy
 import matplotlib.pyplot as plt
 import datetime
+import mechanize
+import inspect
+
+# Mechanize:
+# http://wwwsearch.sourceforge.net/mechanize/forms.html
+# http://www.pythonforbeginners.com/cheatsheet/python-mechanize-cheat-sheet
 
 from trackit import __version__
 
@@ -25,16 +31,16 @@ __license__ = "none"
 _logger = logging.getLogger(__name__)
 
 basins=dict()
-basins[0 ] = 'North Atlantic'
-basins[1 ] = 'South Atlantic'
-basins[2 ] = 'West Pacific'
-basins[3 ] = 'East Pacific'
-basins[4 ] = 'South Pacific'
-basins[5 ] = 'North Indian'
-basins[6 ] = 'South Indian'
-basins[7 ] = 'Arabian Sea'
-basins[8 ] = 'Bay of Bengal'
-basins[9 ] = 'Eastern Australia'
+basins[0] = 'North Atlantic'
+basins[1] = 'South Atlantic'
+basins[2] = 'West Pacific'
+basins[3] = 'East Pacific'
+basins[4] = 'South Pacific'
+basins[5] = 'North Indian'
+basins[6] = 'South Indian'
+basins[7] = 'Arabian Sea'
+basins[8] = 'Bay of Bengal'
+basins[9] = 'Eastern Australia'
 basins[10] = 'Western Australia'
 basins[11] = 'Central Pacific'
 basins[12] = 'Carribbean Sea'
@@ -49,6 +55,120 @@ def getDate(jday,jdayRef='1858-11-17 00:00:00'):
     delta = datetime.timedelta(0,(jdayToRef - int(jdayToRef))*86400)
     date = datetime.datetime.fromordinal(int(jdayToRef)) + delta
     return date
+
+def _downloadIr(args):
+    config = ConfigParser.ConfigParser()
+    config.readfp(open(args.f))
+    user = config.get('noaa','user')
+    pwd = config.get('noaa','pwd')
+    xmlfile = config.get('IO','xml_file')
+
+    rf=open('response.html','w')
+
+    browser = mechanize.Browser()
+    browser.addheaders = [('User-agent','Firefox')]
+    browser.set_handle_robots(False)
+    baseUrl = 'https://www.nsof.class.noaa.gov/saa/products'
+
+    #loginUrl = baseUrl+'/classlogin'
+    #response = browser.open(loginUrl)
+    #clsmembers = inspect.getmembers(sys.modules['mechanize'],
+    #inspect.isclass)
+
+    loginUrl = baseUrl+'/upload'
+    response = browser.open(loginUrl)
+    #rf.write(response.read())
+
+    form = browser.select_form(name='f1')
+    browser.form.add_file(open(xmlfile),'text/plain',xmlfile)
+    print(browser.form)
+
+    sys.exit(0)
+
+
+    response = browser.submit()
+    #rf.write(response.read())
+
+    form = browser.select_form(name='search_frm')
+    response = browser.submit()
+
+    browser.select_form(name='rform')
+    for i in range(len(browser.find_control('cart').items)):
+        browser.find_control('cart').items[i].selected=True
+
+    gotoCart = mechanize._form.SubmitControl('hidden','update_action','Goto Cart')
+    browser.add_to_form(gotoCart)
+
+    print(browser.form)
+    response = browser.submit()
+    rf.write(response.read())
+    sys.exit(0)
+    # /media/drosa/1T/Data/Cyclones/test.xml
+
+    browser.select_form(name='rform')
+    print(browser.form)
+    sys.exit(0)
+
+    response = browser.submit()
+    rf.write(response.read())
+    print('----------------------')
+    sys.exit(0)
+
+    for control in browser.form.controls:
+        print(control,control.type,control.id,control._value,)
+        print('======')
+
+    sys.exit(0)
+
+    #response = browser.submit()
+    #response = browser.submit()
+    rf.write(response.read())
+
+    for form in browser.forms():
+        print("Form name:", form.name)
+        print(form)
+        print('---------------------')
+
+    sys.exit(0)
+
+    #for form in browser.forms():
+    #    print("Form name:", form.name)
+    #    print(form)
+    #    print('---------------------')
+
+    rf.close()
+
+    sys.exit(0)
+
+    browser['uploaded_file'] = xmlfile
+    browser['j_password'] = pwd
+    response = browser.submit()
+    print(response)
+    sys.exit(0)
+
+    #response = browser.follow_link(link)
+    for form in browser.forms():
+        print("Form name:", form.name)
+        print(form)
+        print('---------------------')
+    sys.exit(0)
+
+    #browser.select_form(name='frmLogin')
+    #browser["j_username"] = user
+    #browser["j_password"] = pwd
+    #browser.submit()
+
+    #print(response.geturl())
+
+    #for link in browser.links():
+    #    print(link.text)
+    #    print(link.url)
+    #    print('----------')
+    #    #request = browser.click_link(link)
+    #    #response = browser.follow_link(link)
+
+    #print(browser.title())
+    #print(user,pwd)
 
 def _historical_tracks_attributes(args):
     """
@@ -136,22 +256,9 @@ def _historical_tracks(args):
 def parse_args(args):
     """
     Parse command line parameters
-
     :param args: command line parameters as list of strings
     :return: command line parameters as :obj:`airgparse.Namespace`
     """
-
-    if os.path.exists('../input.cfg'):
-        config = ConfigParser.ConfigParser()
-        config.readfp(open('../input.cfg'))
-        INPUT_FILE = config.get('IO','input_file')
-        INPUT_FILE_README = config.get('IO','input_file_readme')
-    else:
-        INPUT_FILE = None
-        INPUT_FILE_README = None
-
-    print(INPUT_FILE)
-
     parser = argparse.ArgumentParser(
         description="Historical cyclones reader")
     parser.add_argument(
@@ -160,13 +267,14 @@ def parse_args(args):
         action='version',
         version='trackit {ver}'.format(ver=__version__))
     parser.add_argument('-a',action='store_true',required=False,help="input file attributes dump")
-    parser.add_argument('-f',required=(INPUT_FILE == None),help="input file")
+    parser.add_argument('-f',required=False,help="Parameter input file")
     parser.add_argument('-mindate',default='2013-01-01',required=False)
     parser.add_argument('-maxdate',default='2016-12-31',required=False)
     parser.add_argument('-basin',default='West Pacific',required=False)
     parser.add_argument('-plot',action='store_true',required=False)
     args = parser.parse_args(args)
-    args.f = args.f or INPUT_FILE
+    args.f = 'input.cfg' if not args.f else args.f
+    args.f=os.path.abspath(args.f)
     return args
 
 def main(args):
@@ -195,10 +303,35 @@ def main(args):
     #_historical_tracks(args)
     _logger.info("Script ends here")
 
+def downloadIr():
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+    args = parse_args(sys.argv[1:])
+    _downloadIr(args)
+
 def run():
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
-    main(sys.argv[1:])
+    args = parse_args(sys.argv[1:])
+    if args.a:
+        _historical_tracks_attributes(args)
+    else:
+        cycloneDates = _historical_tracks(args)
+        dates=[]
+        counts=[]
+        for i,iv in sorted(cycloneDates.items()):
+            dates.append(i)
+            counts.append(iv)
+        
+        plt.plot(dates,counts,'-')
+        locs,labels = plt.xticks()
+        plt.setp(labels,rotation=30)
+        axes = plt.gca()
+        axes.set_ylim([0,5])
+        figFormat='png'
+        filename='-'.join([args.basin,args.mindate,args.maxdate])+'.'+figFormat
 
+        plt.title(filename+' - Counts')
+        plt.savefig(filename,format=figFormat,dpi=300)
+    _logger.info("run ends")
 
 if __name__ == "__main__":
     run()
