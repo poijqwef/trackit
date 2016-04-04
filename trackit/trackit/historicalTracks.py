@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import datetime
 import mechanize
 import inspect
+import re
 
 # Mechanize:
 # http://wwwsearch.sourceforge.net/mechanize/forms.html
@@ -65,73 +66,190 @@ def _downloadIr(args):
 
     rf=open('response.html','w')
 
-    browser = mechanize.Browser()
-    browser.addheaders = [('User-agent','Firefox')]
-    browser.set_handle_robots(False)
+    print('Instantiating browser')
+    br = mechanize.Browser()
+    br.addheaders = [('User-agent','Firefox')]
+    br.set_handle_robots(False)
     baseUrl = 'https://www.nsof.class.noaa.gov/saa/products'
 
-    #loginUrl = baseUrl+'/classlogin'
-    #response = browser.open(loginUrl)
-    #clsmembers = inspect.getmembers(sys.modules['mechanize'],
-    #inspect.isclass)
+    #loginUrl = baseUrl+'/classlogin?resource=%2Fsaa%2Fproducts%2Fwelcome'
+    #response = br.open(loginUrl)
+    #br.select_form(name='frmLogin')
+    #br['j_username'] = user
+    #br['j_password'] = pwd
+    #response = br.submit()
+    #print('-----------------')
+    #print(br.title())     
+    #for form in br.forms():
+    #    print(form)
+    #    print(form.action)
+    #print('-----------------')
+    #for link in br.links():
+    #    print(link.text, link.url)
+    #sys.exit(0)
 
-    loginUrl = baseUrl+'/upload'
-    response = browser.open(loginUrl)
-    #rf.write(response.read())
+    uploadUrl = baseUrl+'/upload'
+    response = br.open(uploadUrl)
+    rf.write(response.read())
+    #clsmembers = inspect.getmembers(sys.modules['mechanize'],inspect.isclass)
 
-    form = browser.select_form(name='f1')
-    browser.form.add_file(open(xmlfile),'text/plain',xmlfile)
-    print(browser.form)
+    print('Opening file upload url and submitting file: '+xmlfile)
+    uploadUrl = baseUrl+'/upload'
+    response = br.open(uploadUrl)
+    form = br.select_form(name='f1')
+    br.form.add_file(open(xmlfile),'text/plain',xmlfile)
+    response = br.submit()
+
+    print('Selecting search form and submitting: '+xmlfile)
+    form = br.select_form(name='search_frm')
+    response = br.submit()
+
+    print('Selecting refine form')
+    form = br.select_form(name='rform')
+    print('Emulating jscript for selecting all check boxes')
+    attrs = {}
+    control = mechanize._form.HiddenControl('hidden','group_index',attrs)
+    control._value = 0
+    control.add_to_form(br.form)
+    control = mechanize._form.HiddenControl('hidden','update_action',attrs)
+    control._value = 'AddGroup'
+    control.add_to_form(br.form)
+    response = br.submit()
+
+    print('Re-Selecting refine form')
+    print('Emulating jscript for going to cart')
+    form = br.select_form(name='rform')
+    attrs = {}
+    control = mechanize._form.HiddenControl('hidden','update_action',attrs)
+    control._value = 'Goto Cart'
+    control.add_to_form(br.form)
+    oldAction = br.form.action
+    br.form.action = baseUrl+'/shopping_cart_upd'
+    response = br.submit()
+
+    print('Selecting shop form')
+    form = br.select_form(name='shop')
+    print('Changing format to netcdf for all datasets')
+    for control in br.form.controls:
+        if type(control.name)==str and re.search('^format_[0-9]+_GVAR_IMG$',control.name):
+            control.value=['NetCDF']
+    response = br.submit()
+    rf.write(response.read())
+
+    #for form in br.forms():
+    #    print(form)
+    #    print(form.action)
+
+    sys.exit(0)
+    response = br.submit()
+
+#   // Set form action to shopping_cart_upd, and submit form
+#   document.rform.action = "shopping_cart_upd";
+#   document.rform.submit();
+#
+#   // Reset form action
+#   document.rform.action = origAction;
+
+    for form in br.forms():
+        print(form)
+        print(form.action)
 
     sys.exit(0)
 
 
-    response = browser.submit()
-    #rf.write(response.read())
 
-    form = browser.select_form(name='search_frm')
-    response = browser.submit()
+    print(xmlfile)
+    rf.write(response.read())
+    sys.exit(0)
 
-    browser.select_form(name='rform')
-    for i in range(len(browser.find_control('cart').items)):
-        browser.find_control('cart').items[i].selected=True
+#function GotoShop () {
+#   var input = document.createElement('input');
+#   input.type = 'hidden';
+#   input.name = 'update_action';
+#   input.value = 'Goto Cart';
+#   document.rform.appendChild(input);
+#
+#   // Save form action
+#   var origAction = document.rform.action;
+#
+#   // Set form action to shopping_cart_upd, and submit form
+#   document.rform.action = "shopping_cart_upd";
+#   document.rform.submit();
+#
+#   // Reset form action
+#   document.rform.action = origAction;
+#}
+
+#function AddGroup2Cart (groupIndex) {
+#  // The first group index is the "add to" label...
+#  if (groupIndex > 0) {
+#    document.rform.page.value = "current";
+#   
+#    var input2 = document.createElement('input');
+#    input2.type = 'hidden';
+#    input2.name = 'group_index';
+#    input2.value = groupIndex - 1;
+#    document.rform.appendChild(input2);
+#   
+#    var input = document.createElement('input');
+#    input.type = 'hidden';
+#    input.name = 'update_action';
+#    input.value = 'AddGroup';
+#    document.rform.appendChild(input);
+#   
+#    document.rform.submit();
+
+
+
+    for form in br.forms():
+        print(form)
+
+    sys.exit(0)
+
+    form = br.select_form(name='search_frm')
+
+    print(br.form)
+
+    br.select_form(name='rform')
+    for i in range(len(br.find_control('cart').items)):
+        br.find_control('cart').items[i].selected=True
 
     gotoCart = mechanize._form.SubmitControl('hidden','update_action','Goto Cart')
-    browser.add_to_form(gotoCart)
+    br.add_to_form(gotoCart)
 
-    print(browser.form)
-    response = browser.submit()
+    print(br.form)
+    response = br.submit()
     rf.write(response.read())
     sys.exit(0)
     # /media/drosa/1T/Data/Cyclones/test.xml
 
-    browser.select_form(name='rform')
-    print(browser.form)
+    br.select_form(name='rform')
+    print(br.form)
     sys.exit(0)
 
-    response = browser.submit()
+    response = br.submit()
     rf.write(response.read())
     print('----------------------')
     sys.exit(0)
 
-    for control in browser.form.controls:
+    for control in br.form.controls:
         print(control,control.type,control.id,control._value,)
         print('======')
 
     sys.exit(0)
 
-    #response = browser.submit()
-    #response = browser.submit()
+    #response = br.submit()
+    #response = br.submit()
     rf.write(response.read())
 
-    for form in browser.forms():
+    for form in br.forms():
         print("Form name:", form.name)
         print(form)
         print('---------------------')
 
     sys.exit(0)
 
-    #for form in browser.forms():
+    #for form in br.forms():
     #    print("Form name:", form.name)
     #    print(form)
     #    print('---------------------')
@@ -140,34 +258,34 @@ def _downloadIr(args):
 
     sys.exit(0)
 
-    browser['uploaded_file'] = xmlfile
-    browser['j_password'] = pwd
-    response = browser.submit()
+    br['uploaded_file'] = xmlfile
+    br['j_password'] = pwd
+    response = br.submit()
     print(response)
     sys.exit(0)
 
-    #response = browser.follow_link(link)
-    for form in browser.forms():
+    #response = br.follow_link(link)
+    for form in br.forms():
         print("Form name:", form.name)
         print(form)
         print('---------------------')
     sys.exit(0)
 
-    #browser.select_form(name='frmLogin')
-    #browser["j_username"] = user
-    #browser["j_password"] = pwd
-    #browser.submit()
+    #br.select_form(name='frmLogin')
+    #br["j_username"] = user
+    #br["j_password"] = pwd
+    #br.submit()
 
     #print(response.geturl())
 
-    #for link in browser.links():
+    #for link in br.links():
     #    print(link.text)
     #    print(link.url)
     #    print('----------')
-    #    #request = browser.click_link(link)
-    #    #response = browser.follow_link(link)
+    #    #request = br.click_link(link)
+    #    #response = br.follow_link(link)
 
-    #print(browser.title())
+    #print(br.title())
     #print(user,pwd)
 
 def _historical_tracks_attributes(args):
