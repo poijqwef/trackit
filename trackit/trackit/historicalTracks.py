@@ -16,6 +16,7 @@ import numpy
 import matplotlib.pyplot as plt
 import datetime
 import mechanize
+from selenium import webdriver
 import inspect
 import re
 
@@ -64,29 +65,70 @@ def _downloadIr(args):
     pwd = config.get('noaa','pwd')
     xmlfile = config.get('IO','xml_file')
 
-    rf=open('response.html','w')
+    baseUrl = 'https://www.nsof.class.noaa.gov/saa/products'
 
+    print('https://www.browserstack.com/automate/python')
+    sys.exit(0)
+    driver = webdriver.Firefox() 
+    driver.get(baseUrl+'/classlogin')
+    username = driver.find_element_by_name("j_username")
+    password = driver.find_element_by_name("j_password")
+    username.send_keys(user)
+    password.send_keys(pwd)
+    login_button = driver.find_element_by_xpath("//input[@class='Button'][@value='Login'][@type='submit']")
+    login_button.click()
+    driver.implicitly_wait(3)
+    driver.get(baseUrl+'/user_profile')
+    driver.get(baseUrl+'/upload')
+    sys.exit(0)
+    upload_file = driver.find_element_by_xpath("//input[@name='uploaded_file'][@type='file']")
+    upload_button = driver.find_element_by_xpath("//input[@type='submit'][@class='Button'][@value='Upload File']")
+    upload_file.send_keys(xmlfile)
+    upload_button.click()
+    search_button = driver.find_element_by_xpath("//input[@class='Button'][@value='Search']")
+    search_button.click()
+    select_datasets = driver.find_element_by_xpath("//select[@name='AddGroup']/option[2]")
+    select_datasets.click()
+    goto_cart = driver.find_element_by_xpath("//input[@value='Goto Cart'][@class='Button']")
+    goto_cart.click()
+
+    formats = driver.find_elements_by_xpath("//select/option[@value='NetCDF']")
+    for i in formats:
+        i.click()
+
+
+
+    sys.exit(0)
+
+    response = br.submit()
+    sys.exit(0)
+
+
+    # MECHANIZE ATTEMPT
+
+    logger = logging.getLogger("mechanize")
+    logger.addHandler(logging.StreamHandler(sys.stdout))
+    logger.setLevel(logging.INFO)
+    rf=open('response.html','w')
     print('Instantiating browser')
     br = mechanize.Browser()
+    br.set_debug_http(False)
+    br.set_debug_responses(False)
+    br.set_debug_redirects(False)
+
     br.addheaders = [('User-agent','Firefox')]
     br.set_handle_robots(False)
     baseUrl = 'https://www.nsof.class.noaa.gov/saa/products'
+    print('NOAA login page')
+    classloginUrl= baseUrl+'/classlogin'
+    response = br.open(classloginUrl)
 
-    #loginUrl = baseUrl+'/classlogin?resource=%2Fsaa%2Fproducts%2Fwelcome'
-    #response = br.open(loginUrl)
-    #br.select_form(name='frmLogin')
-    #br['j_username'] = user
-    #br['j_password'] = pwd
-    #response = br.submit()
-    #print('-----------------')
-    #print(br.title())     
-    #for form in br.forms():
-    #    print(form)
-    #    print(form.action)
-    #print('-----------------')
-    #for link in br.links():
-    #    print(link.text, link.url)
-    #sys.exit(0)
+    print('Selecting login form and passing username and password')
+    br.select_form(name='frmLogin')
+    br['j_username'] = user
+    br['j_password'] = pwd
+    print("FORM ACTION: "+br.form.action)
+    response = br.submit()
 
     uploadUrl = baseUrl+'/upload'
     response = br.open(uploadUrl)
@@ -133,6 +175,12 @@ def _downloadIr(args):
     for control in br.form.controls:
         if type(control.name)==str and re.search('^format_[0-9]+_GVAR_IMG$',control.name):
             control.value=['NetCDF']
+        elif type(control.name)==str and control.name=='encryption':
+            control.readonly = False
+            control.value = 'Y'
+
+    br['email']='drosawork@drosa.name'
+    
     response = br.submit()
     rf.write(response.read())
 
@@ -143,72 +191,7 @@ def _downloadIr(args):
     sys.exit(0)
     response = br.submit()
 
-#   // Set form action to shopping_cart_upd, and submit form
-#   document.rform.action = "shopping_cart_upd";
-#   document.rform.submit();
-#
-#   // Reset form action
-#   document.rform.action = origAction;
-
-    for form in br.forms():
-        print(form)
-        print(form.action)
-
-    sys.exit(0)
-
-
-
     print(xmlfile)
-    rf.write(response.read())
-    sys.exit(0)
-
-#function GotoShop () {
-#   var input = document.createElement('input');
-#   input.type = 'hidden';
-#   input.name = 'update_action';
-#   input.value = 'Goto Cart';
-#   document.rform.appendChild(input);
-#
-#   // Save form action
-#   var origAction = document.rform.action;
-#
-#   // Set form action to shopping_cart_upd, and submit form
-#   document.rform.action = "shopping_cart_upd";
-#   document.rform.submit();
-#
-#   // Reset form action
-#   document.rform.action = origAction;
-#}
-
-#function AddGroup2Cart (groupIndex) {
-#  // The first group index is the "add to" label...
-#  if (groupIndex > 0) {
-#    document.rform.page.value = "current";
-#   
-#    var input2 = document.createElement('input');
-#    input2.type = 'hidden';
-#    input2.name = 'group_index';
-#    input2.value = groupIndex - 1;
-#    document.rform.appendChild(input2);
-#   
-#    var input = document.createElement('input');
-#    input.type = 'hidden';
-#    input.name = 'update_action';
-#    input.value = 'AddGroup';
-#    document.rform.appendChild(input);
-#   
-#    document.rform.submit();
-
-
-
-    for form in br.forms():
-        print(form)
-
-    sys.exit(0)
-
-    form = br.select_form(name='search_frm')
-
-    print(br.form)
 
     br.select_form(name='rform')
     for i in range(len(br.find_control('cart').items)):
@@ -231,62 +214,6 @@ def _downloadIr(args):
     rf.write(response.read())
     print('----------------------')
     sys.exit(0)
-
-    for control in br.form.controls:
-        print(control,control.type,control.id,control._value,)
-        print('======')
-
-    sys.exit(0)
-
-    #response = br.submit()
-    #response = br.submit()
-    rf.write(response.read())
-
-    for form in br.forms():
-        print("Form name:", form.name)
-        print(form)
-        print('---------------------')
-
-    sys.exit(0)
-
-    #for form in br.forms():
-    #    print("Form name:", form.name)
-    #    print(form)
-    #    print('---------------------')
-
-    rf.close()
-
-    sys.exit(0)
-
-    br['uploaded_file'] = xmlfile
-    br['j_password'] = pwd
-    response = br.submit()
-    print(response)
-    sys.exit(0)
-
-    #response = br.follow_link(link)
-    for form in br.forms():
-        print("Form name:", form.name)
-        print(form)
-        print('---------------------')
-    sys.exit(0)
-
-    #br.select_form(name='frmLogin')
-    #br["j_username"] = user
-    #br["j_password"] = pwd
-    #br.submit()
-
-    #print(response.geturl())
-
-    #for link in br.links():
-    #    print(link.text)
-    #    print(link.url)
-    #    print('----------')
-    #    #request = br.click_link(link)
-    #    #response = br.follow_link(link)
-
-    #print(br.title())
-    #print(user,pwd)
 
 def _historical_tracks_attributes(args):
     """
