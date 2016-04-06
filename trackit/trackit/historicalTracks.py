@@ -46,6 +46,41 @@ basins[12] = 'Carribbean Sea'
 basins[13] = 'Gulf of Mexico'
 basins[14] = 'Missing'
 
+def writeFtp(numbers,user):
+
+    if type(numbers) == int:
+        numbers = [numbers]
+    elif type(numbers) == list:
+        assert type(numbers[0]) == int,'This is not a list of ints'
+    else:
+        raise Exception,'error: either pass a int or a list of ints'
+    
+    logTimeStamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+    confirmationNumberFile = open('confirmationNumbers.'+logTimeStamp+'.ftp','w')
+    confirmationNumberFile.write("#!/bin/bash\n\n")
+
+    for i in numbers:
+        confirmationNumber = i
+        ftpFileContent=[
+        "HOST='ftp.class.ngdc.noaa.gov'",
+        "USER='anonymous'",
+        "PASSWD='"+user+"'",
+        "ORDERID="+str(confirmationNumber),
+        "ftp -n $HOST << EOF",
+        "user $USER $PASSWD",
+        "binary",
+        "cd $ORDERID/001",
+        "prompt",
+        "verbose on",
+        "mget *",
+        "bye",
+        "EOF",
+        '',
+        ]
+    for i in ftpFileContent:
+        confirmationNumberFile.write(i+'\n')
+    confirmationNumberFile.close()
+
 def e(value):
     sys.exit(value)
 
@@ -82,6 +117,7 @@ def _downloadIr(args):
     baseUrl = 'https://www.nsof.class.noaa.gov/saa/products'
     driver = webdriver.Firefox() 
     driver.get(baseUrl+'/catSearch')
+
     s(sleepTime)
     driver.get(baseUrl+'/classlogin')
     s(sleepTime)
@@ -121,12 +157,6 @@ def _downloadIr(args):
     for i in ['G08','G09','G10','G11','G12','G13','G14','G15']:
         select_satellite = driver.find_element_by_xpath("//select/option[@name='Satellite'][@value='"+i+"'][@id='"+i+"']")
         select_satellite.click()
-    #driver.get(baseUrl+'/upload')
-    #upload_file = driver.find_element_by_xpath("//input[@name='uploaded_file'][@type='file']")
-    #upload_button = driver.find_element_by_xpath("//input[@type='submit'][@class='Button'][@value='Upload File']")
-    #upload_file.send_keys(xmlfile)
-    #upload_button.click()
-    #s(sleepTime)
     search_button = driver.find_element_by_xpath("//input[@class='Button'][@value='Search']")
     search_button.click()
     s(sleepTime)
@@ -148,6 +178,23 @@ def _downloadIr(args):
     s(sleepTime)
     place_order = driver.find_element_by_xpath("//input[@value='PlaceOrder'][@name='cocoon-action'][@class='Button']")
     place_order.click()
+
+    #responseFile = 'response.html'
+    #with open(responseFile,'r') as f:
+    #    wholeFile = ''.join(f.readlines())
+    wholeFile = ''.join(driver.page_source)
+    wholeFile = wholeFile.replace('\t',' ').replace('\n',' ')
+    squeezer = re.compile(' +')
+    wholeFile = squeezer.sub(' ',wholeFile)
+    confirmationNumber = re.search('Your confirmation number is: \d+',wholeFile)
+    if confirmationNumber != None:
+        confirmationNumber = int(confirmationNumber.group()[30:])
+    else:
+        print('error while processing '+comment_string)
+        sys.exit(1)
+
+    writeFtp(confirmationNumber,user)
+    driver.close()
 
 def _historical_tracks_attributes(args):
     """
@@ -247,7 +294,7 @@ def parse_args(args):
         version='trackit {ver}'.format(ver=__version__))
     parser.add_argument('-a',action='store_true',required=False,help="input file attributes dump")
     parser.add_argument('-f',required=False,help="Parameter input file")
-    parser.add_argument('-mindate',default='2013-01-01',required=False)
+    parser.add_argument('-mindate',default='2013-01-06',required=False)
     parser.add_argument('-maxdate',default='2016-12-31',required=False)
     parser.add_argument('-basin',default='West Pacific',required=False)
     parser.add_argument('-plot',action='store_true',required=False)
