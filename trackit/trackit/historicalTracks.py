@@ -19,6 +19,7 @@ import mechanize
 from selenium import webdriver
 import inspect
 import re
+import time
 
 # Mechanize:
 # http://wwwsearch.sourceforge.net/mechanize/forms.html
@@ -49,6 +50,12 @@ basins[12] = 'Carribbean Sea'
 basins[13] = 'Gulf of Mexico'
 basins[14] = 'Missing'
 
+def e(value):
+    sys.exit(value)
+
+def s(value):
+    time.sleep(value)
+
 def getDate(jday,jdayRef='1858-11-17 00:00:00'):
     if not jday:
         return jday
@@ -65,44 +72,45 @@ def _downloadIr(args):
     pwd = config.get('noaa','pwd')
     xmlfile = config.get('IO','xml_file')
 
-    baseUrl = 'https://www.nsof.class.noaa.gov/saa/products'
+    sleepTime=3
 
-    print('https://www.browserstack.com/automate/python')
-    sys.exit(0)
+    baseUrl = 'https://www.nsof.class.noaa.gov/saa/products'
     driver = webdriver.Firefox() 
+    driver.get(baseUrl+'/upload')
+    s(sleepTime)
     driver.get(baseUrl+'/classlogin')
+    s(sleepTime)
     username = driver.find_element_by_name("j_username")
     password = driver.find_element_by_name("j_password")
     username.send_keys(user)
     password.send_keys(pwd)
     login_button = driver.find_element_by_xpath("//input[@class='Button'][@value='Login'][@type='submit']")
     login_button.click()
-    driver.implicitly_wait(3)
-    driver.get(baseUrl+'/user_profile')
+    #driver.get(baseUrl+'/user_profile')
+    s(sleepTime)
     driver.get(baseUrl+'/upload')
-    sys.exit(0)
     upload_file = driver.find_element_by_xpath("//input[@name='uploaded_file'][@type='file']")
     upload_button = driver.find_element_by_xpath("//input[@type='submit'][@class='Button'][@value='Upload File']")
     upload_file.send_keys(xmlfile)
     upload_button.click()
+    s(sleepTime)
     search_button = driver.find_element_by_xpath("//input[@class='Button'][@value='Search']")
     search_button.click()
+    s(sleepTime)
     select_datasets = driver.find_element_by_xpath("//select[@name='AddGroup']/option[2]")
     select_datasets.click()
+    s(sleepTime)
     goto_cart = driver.find_element_by_xpath("//input[@value='Goto Cart'][@class='Button']")
     goto_cart.click()
-
+    s(sleepTime)
     formats = driver.find_elements_by_xpath("//select/option[@value='NetCDF']")
     for i in formats:
         i.click()
-
-
+    order_comment = driver.find_element_by_xpath("//input[@type='text'][@name='order_comment']")
+    order_comment.send_keys('This is the comment')
+    s(sleepTime)
 
     sys.exit(0)
-
-    response = br.submit()
-    sys.exit(0)
-
 
     # MECHANIZE ATTEMPT
 
@@ -180,40 +188,14 @@ def _downloadIr(args):
             control.value = 'Y'
 
     br['email']='drosawork@drosa.name'
-    
     response = br.submit()
     rf.write(response.read())
-
     #for form in br.forms():
     #    print(form)
     #    print(form.action)
-
     sys.exit(0)
     response = br.submit()
-
     print(xmlfile)
-
-    br.select_form(name='rform')
-    for i in range(len(br.find_control('cart').items)):
-        br.find_control('cart').items[i].selected=True
-
-    gotoCart = mechanize._form.SubmitControl('hidden','update_action','Goto Cart')
-    br.add_to_form(gotoCart)
-
-    print(br.form)
-    response = br.submit()
-    rf.write(response.read())
-    sys.exit(0)
-    # /media/drosa/1T/Data/Cyclones/test.xml
-
-    br.select_form(name='rform')
-    print(br.form)
-    sys.exit(0)
-
-    response = br.submit()
-    rf.write(response.read())
-    print('----------------------')
-    sys.exit(0)
 
 def _historical_tracks_attributes(args):
     """
