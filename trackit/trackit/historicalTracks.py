@@ -15,15 +15,11 @@ import ConfigParser
 import numpy
 import matplotlib.pyplot as plt
 import datetime
-import mechanize
 from selenium import webdriver
 import inspect
 import re
 import time
-
-# Mechanize:
-# http://wwwsearch.sourceforge.net/mechanize/forms.html
-# http://www.pythonforbeginners.com/cheatsheet/python-mechanize-cheat-sheet
+import random
 
 from trackit import __version__
 
@@ -54,7 +50,7 @@ def e(value):
     sys.exit(value)
 
 def s(value):
-    time.sleep(value)
+    time.sleep(max(0,value+random.random()-0.5))
 
 def getDate(jday,jdayRef='1858-11-17 00:00:00'):
     if not jday:
@@ -73,10 +69,19 @@ def _downloadIr(args):
     xmlfile = config.get('IO','xml_file')
 
     sleepTime=3
+    start_date = datetime.datetime.strptime(args.mindate,'%Y-%m-%d')
+    end_date = datetime.datetime.strptime(args.maxdate,'%Y-%m-%d')
+    delta = datetime.timedelta(0,86400/2)
+    end_date = start_date+delta
+    start_date_string = start_date.strftime('%Y-%m-%d')
+    end_date_string = end_date.strftime('%Y-%m-%d')
+    start_time_string = start_date.strftime('%H:%M:%S')
+    end_time_string = end_date.strftime('%H:%M:%S')
+    comment_string = start_date_string+' '+start_time_string+' '+end_date_string+' '+end_time_string
 
     baseUrl = 'https://www.nsof.class.noaa.gov/saa/products'
     driver = webdriver.Firefox() 
-    driver.get(baseUrl+'/upload')
+    driver.get(baseUrl+'/catSearch')
     s(sleepTime)
     driver.get(baseUrl+'/classlogin')
     s(sleepTime)
@@ -86,17 +91,49 @@ def _downloadIr(args):
     password.send_keys(pwd)
     login_button = driver.find_element_by_xpath("//input[@class='Button'][@value='Login'][@type='submit']")
     login_button.click()
-    #driver.get(baseUrl+'/user_profile')
     s(sleepTime)
-    driver.get(baseUrl+'/upload')
-    upload_file = driver.find_element_by_xpath("//input[@name='uploaded_file'][@type='file']")
-    upload_button = driver.find_element_by_xpath("//input[@type='submit'][@class='Button'][@value='Upload File']")
-    upload_file.send_keys(xmlfile)
-    upload_button.click()
-    s(sleepTime)
+    driver.get(baseUrl+'/catSearch')
+    gvar_img_select = driver.find_element_by_xpath("//select/option[@value='GVAR_IMG']")
+    gvar_img_select.click()
+    gvar_img_go = driver.find_element_by_xpath("//input[@type='image'][@name='submit'][@src='../images/go.gif']")
+    gvar_img_go.click()
+    start_date_input = driver.find_element_by_xpath("//input[@name='start_date'][@type='text'][@id='start_date']")
+    start_date_input.clear()
+    start_date_input.send_keys(start_date_string)
+    start_time_input = driver.find_element_by_xpath("//input[@name='start_time'][@type='text'][@id='start_time']")
+    start_time_input.clear()
+    start_time_input.send_keys(start_time_string)
+    end_date_input = driver.find_element_by_xpath("//input[@name='end_date'][@type='text'][@id='end_date']")
+    end_date_input.clear()
+    end_date_input.send_keys(end_date_string)
+    end_time_input = driver.find_element_by_xpath("//input[@name='end_time'][@type='text'][@id='end_time']")
+    end_time_input.clear()
+    end_time_input.send_keys(end_time_string)
+    range_input = driver.find_element_by_xpath("//input[@name='between_through'][@type='radio'][@id='between_through_T']")
+    range_input.click()
+    for i in ['R','RSO','SRSO','O']:
+        checkbox= driver.find_element_by_xpath("//input[@name='Satellite Schedule'][@type='checkbox'][@value='"+i+"']")
+        if not checkbox.is_selected():
+            checkbox.click()
+    checkbox= driver.find_element_by_xpath("//input[@name='Coverage'][@type='checkbox'][@value='FD']")
+    if not checkbox.is_selected():
+        checkbox.click()
+    for i in ['G08','G09','G10','G11','G12','G13','G14','G15']:
+        select_satellite = driver.find_element_by_xpath("//select/option[@name='Satellite'][@value='"+i+"'][@id='"+i+"']")
+        select_satellite.click()
+    #driver.get(baseUrl+'/upload')
+    #upload_file = driver.find_element_by_xpath("//input[@name='uploaded_file'][@type='file']")
+    #upload_button = driver.find_element_by_xpath("//input[@type='submit'][@class='Button'][@value='Upload File']")
+    #upload_file.send_keys(xmlfile)
+    #upload_button.click()
+    #s(sleepTime)
     search_button = driver.find_element_by_xpath("//input[@class='Button'][@value='Search']")
     search_button.click()
     s(sleepTime)
+    selects_datasets = driver.find_elements_by_xpath("//select[@name='AddGroup']/option")
+    if len(selects_datasets)>2:
+        print('\nerror: not expecting more than on page to select: shrink time search')
+        sys.exit(1)
     select_datasets = driver.find_element_by_xpath("//select[@name='AddGroup']/option[2]")
     select_datasets.click()
     s(sleepTime)
@@ -107,95 +144,10 @@ def _downloadIr(args):
     for i in formats:
         i.click()
     order_comment = driver.find_element_by_xpath("//input[@type='text'][@name='order_comment']")
-    order_comment.send_keys('This is the comment')
+    order_comment.send_keys(comment_string.replace('-',' ').replace(':',' '))
     s(sleepTime)
-
-    sys.exit(0)
-
-    # MECHANIZE ATTEMPT
-
-    logger = logging.getLogger("mechanize")
-    logger.addHandler(logging.StreamHandler(sys.stdout))
-    logger.setLevel(logging.INFO)
-    rf=open('response.html','w')
-    print('Instantiating browser')
-    br = mechanize.Browser()
-    br.set_debug_http(False)
-    br.set_debug_responses(False)
-    br.set_debug_redirects(False)
-
-    br.addheaders = [('User-agent','Firefox')]
-    br.set_handle_robots(False)
-    baseUrl = 'https://www.nsof.class.noaa.gov/saa/products'
-    print('NOAA login page')
-    classloginUrl= baseUrl+'/classlogin'
-    response = br.open(classloginUrl)
-
-    print('Selecting login form and passing username and password')
-    br.select_form(name='frmLogin')
-    br['j_username'] = user
-    br['j_password'] = pwd
-    print("FORM ACTION: "+br.form.action)
-    response = br.submit()
-
-    uploadUrl = baseUrl+'/upload'
-    response = br.open(uploadUrl)
-    rf.write(response.read())
-    #clsmembers = inspect.getmembers(sys.modules['mechanize'],inspect.isclass)
-
-    print('Opening file upload url and submitting file: '+xmlfile)
-    uploadUrl = baseUrl+'/upload'
-    response = br.open(uploadUrl)
-    form = br.select_form(name='f1')
-    br.form.add_file(open(xmlfile),'text/plain',xmlfile)
-    response = br.submit()
-
-    print('Selecting search form and submitting: '+xmlfile)
-    form = br.select_form(name='search_frm')
-    response = br.submit()
-
-    print('Selecting refine form')
-    form = br.select_form(name='rform')
-    print('Emulating jscript for selecting all check boxes')
-    attrs = {}
-    control = mechanize._form.HiddenControl('hidden','group_index',attrs)
-    control._value = 0
-    control.add_to_form(br.form)
-    control = mechanize._form.HiddenControl('hidden','update_action',attrs)
-    control._value = 'AddGroup'
-    control.add_to_form(br.form)
-    response = br.submit()
-
-    print('Re-Selecting refine form')
-    print('Emulating jscript for going to cart')
-    form = br.select_form(name='rform')
-    attrs = {}
-    control = mechanize._form.HiddenControl('hidden','update_action',attrs)
-    control._value = 'Goto Cart'
-    control.add_to_form(br.form)
-    oldAction = br.form.action
-    br.form.action = baseUrl+'/shopping_cart_upd'
-    response = br.submit()
-
-    print('Selecting shop form')
-    form = br.select_form(name='shop')
-    print('Changing format to netcdf for all datasets')
-    for control in br.form.controls:
-        if type(control.name)==str and re.search('^format_[0-9]+_GVAR_IMG$',control.name):
-            control.value=['NetCDF']
-        elif type(control.name)==str and control.name=='encryption':
-            control.readonly = False
-            control.value = 'Y'
-
-    br['email']='drosawork@drosa.name'
-    response = br.submit()
-    rf.write(response.read())
-    #for form in br.forms():
-    #    print(form)
-    #    print(form.action)
-    sys.exit(0)
-    response = br.submit()
-    print(xmlfile)
+    place_order = driver.find_element_by_xpath("//input[@value='PlaceOrder'][@name='cocoon-action'][@class='Button']")
+    place_order.click()
 
 def _historical_tracks_attributes(args):
     """
