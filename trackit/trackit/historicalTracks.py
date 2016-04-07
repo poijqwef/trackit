@@ -270,7 +270,7 @@ def _historical_tracks(args):
             nIdxs=len(istormWind)
             lowerIdx=max(0,idxMaxWind-args.nDeltaPtsCyclone)
             upperIdx=min(nIdxs,idxMaxWind+args.nDeltaPtsCyclone)
-            selectedIdxs=[]
+            selectedIdxs=[idxMaxWind]
             for i in range(args.nPtsCyclone):
                 randI = random.randint(lowerIdx,upperIdx)
                 if randI not in selectedIdxs:
