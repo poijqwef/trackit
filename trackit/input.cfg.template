@@ -4,6 +4,7 @@ seed=
 [IO]
 input_file=
 input_file_readme=
+output_dir=
 plot=
 
 [noaa]

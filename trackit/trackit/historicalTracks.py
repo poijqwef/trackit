@@ -46,7 +46,7 @@ basins[12] = 'Carribbean Sea'
 basins[13] = 'Gulf of Mexico'
 basins[14] = 'Missing'
 
-def writeFtp(numbers,user):
+def writeFtp(numbers,user,output_dir='.'):
 
     if type(numbers) == int:
         numbers = [numbers]
@@ -54,13 +54,14 @@ def writeFtp(numbers,user):
         assert type(numbers[0]) == int,'This is not a list of ints'
     else:
         raise Exception,'error: either pass a int or a list of ints'
-    
+   
     logTimeStamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-    confirmationNumberFile = open('confirmationNumbers.'+logTimeStamp+'.ftp','w')
-    confirmationNumberFile.write("#!/bin/bash\n\n")
 
     for i in numbers:
+
         confirmationNumber = i
+        confirmationNumberFile = open(output_dir+'/'+str(confirmationNumber)+'.ftp.'+logTimeStamp+'.sh','w')
+        confirmationNumberFile.write("#!/bin/bash\n\n")
         ftpFileContent=[
         "HOST='ftp.class.ngdc.noaa.gov'",
         "USER='anonymous'",
@@ -69,7 +70,7 @@ def writeFtp(numbers,user):
         "ftp -n $HOST << EOF",
         "user $USER $PASSWD",
         "binary",
-        "cd $ORDERID/001",
+        "cd 2$ORDERID/001",
         "prompt",
         "verbose on",
         "mget *",
@@ -77,9 +78,10 @@ def writeFtp(numbers,user):
         "EOF",
         '',
         ]
-    for i in ftpFileContent:
-        confirmationNumberFile.write(i+'\n')
-    confirmationNumberFile.close()
+
+        for i in ftpFileContent:
+            confirmationNumberFile.write(i+'\n')
+        confirmationNumberFile.close()
 
 def e(value):
     sys.exit(value)
@@ -200,7 +202,7 @@ def _downloadIr(args,dates):
             print('error while processing '+comment_string)
             sys.exit(1)
 
-        writeFtp(confirmationNumber,user)
+        writeFtp(confirmationNumber,user,args.output_dir)
 
         driver.close()
 
@@ -332,6 +334,7 @@ def parse_args(args):
     args.user = config.get('noaa','user')
     args.pwd = config.get('noaa','pwd')
     args.input_file = config.get('IO','input_file')
+    args.output_dir = config.get('IO','output_dir')
     args.plot = args.plot or config.getboolean('IO','plot')
     args.basin = config.get('tracks','basin')
     args.mindate = config.get('tracks','mindate')
