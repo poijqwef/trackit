@@ -146,8 +146,6 @@ def _checkIr(args):
                     'cd '+topDir,
                     'cd '+midDir,
                     'get '+fileName,
-                    'cd ..',
-                    'cd ..',
                     ]
                     ftpTokenDownload += ftpFooterList() + ['fi\n']
                     ftpTokenShow = fileExists + ['echo '+fileName] + ['fi\n']
