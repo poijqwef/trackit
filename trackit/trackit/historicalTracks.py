@@ -21,6 +21,8 @@ import re
 import time
 import random
 import glob
+import subprocess
+import shlex
 
 from trackit import __version__
 
@@ -47,6 +49,22 @@ basins[12] = 'Carribbean Sea'
 basins[13] = 'Gulf of Mexico'
 basins[14] = 'Missing'
 
+def noaaFtpHeaderList(args):
+    user = args.user
+    pwd = args.pwd
+    return [
+    "HOST='ftp.class.ngdc.noaa.gov'",
+    "USER='anonymous'",
+    "PASSWD='"+user+"'",
+    "ftp -n $HOST << EOF",
+    "user $USER $PASSWD",
+    "prompt",
+    "verbose on",
+    "binary"]
+
+def ftpFooterList():
+    return ["bye","EOF",]
+
 def writeFtp(numbers,user,output_dir='.'):
 
     if type(numbers) == int:
@@ -70,10 +88,10 @@ def writeFtp(numbers,user,output_dir='.'):
         "ORDERID="+str(confirmationNumber),
         "ftp -n $HOST << EOF",
         "user $USER $PASSWD",
-        "binary",
-        "cd 2$ORDERID/001",
         "prompt",
         "verbose on",
+        "binary",
+        "cd 2$ORDERID/001",
         "mget *",
         "bye",
         "EOF",
@@ -100,6 +118,12 @@ def getDate(jday,jdayRef='1858-11-17 00:00:00'):
     return date
 
 def _checkIr(args):
+
+    downloadMissingFile = open(args.output_dir+'/downloadMissing.sh','w')
+    showMissingFile = open(args.output_dir+'/showMissing.sh','w')
+    downloadMissingFile.write("#!/bin/bash\n\n")
+    showMissingFile.write("#!/bin/bash\n\n")
+
     reCdOrder=re.compile('cd [0-9]{10}')
     reFilename=re.compile('get [0-9]{3}\/goes.*\.(meta|nc)')
     fileList = glob.glob(args.ir_filelist_dir+'/*.eml')
@@ -112,15 +136,33 @@ def _checkIr(args):
                     topDir=readOrder.group()[3:]
                 readFile=reFilename.search(iline)
                 if readFile:
-                    midDir=readFile.group()[5:8]
+                    midDir=readFile.group()[4:7]
                     fileName=readFile.group()[8:]
                 if readOrder or readFile:
-                    print('if [ ! -e '+fileName+' ]; then')
-                    print('echo cd '+topDir)
-                    print('echo cd '+midDir)
-                    print('echo get '+fileName)
-                    print('echo cd ../..')
-                    print('fi')
+                    fileExists = ['if [ ! -e '+fileName+' ]; then']
+
+                    ftpTokenDownload = fileExists + noaaFtpHeaderList(args)
+                    ftpTokenDownload += [
+                    'cd '+topDir,
+                    'cd '+midDir,
+                    'get '+fileName,
+                    'cd ..',
+                    'cd ..',
+                    ]
+                    ftpTokenDownload += ftpFooterList() + ['fi\n']
+                    ftpTokenShow = fileExists + ['echo '+fileName] + ['fi\n']
+
+                    for i in ftpTokenDownload:
+                        downloadMissingFile.write(i+'\n')
+                    for i in ftpTokenShow:
+                        showMissingFile.write(i+'\n')
+
+    downloadMissingFile.close()
+    showMissingFile.close()
+    subprocess.check_call(shlex.split('chmod +x '+downloadMissingFile.name))
+    subprocess.check_call(shlex.split('chmod +x '+showMissingFile.name))
+    print('made: '+downloadMissingFile.name)
+    print('made: '+showMissingFile.name)
 
 def _downloadIr(args,dates):
 
