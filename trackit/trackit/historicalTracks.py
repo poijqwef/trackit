@@ -20,6 +20,7 @@ import inspect
 import re
 import time
 import random
+import glob
 
 from trackit import __version__
 
@@ -97,6 +98,29 @@ def getDate(jday,jdayRef='1858-11-17 00:00:00'):
     delta = datetime.timedelta(0,(jdayToRef - int(jdayToRef))*86400)
     date = datetime.datetime.fromordinal(int(jdayToRef)) + delta
     return date
+
+def _checkIr(args):
+    reCdOrder=re.compile('cd [0-9]{10}')
+    reFilename=re.compile('get [0-9]{3}\/goes.*\.(meta|nc)')
+    fileList = glob.glob(args.ir_filelist_dir+'/*.eml')
+    for ifile in fileList:
+        with open(ifile,'r') as f:
+            #wholeFile = ''.join(f.readlines())
+            for iline in f.readlines():
+                readOrder=reCdOrder.search(iline)
+                if readOrder:
+                    topDir=readOrder.group()[3:]
+                readFile=reFilename.search(iline)
+                if readFile:
+                    midDir=readFile.group()[5:8]
+                    fileName=readFile.group()[8:]
+                if readOrder or readFile:
+                    print('if [ ! -e '+fileName+' ]; then')
+                    print('echo cd '+topDir)
+                    print('echo cd '+midDir)
+                    print('echo get '+fileName)
+                    print('echo cd ../..')
+                    print('fi')
 
 def _downloadIr(args,dates):
 
@@ -335,6 +359,7 @@ def parse_args(args):
     args.pwd = config.get('noaa','pwd')
     args.input_file = config.get('IO','input_file')
     args.output_dir = config.get('IO','output_dir')
+    args.ir_filelist_dir= config.get('IO','ir_filelist_dir')
     args.plot = args.plot or config.getboolean('IO','plot')
     args.basin = config.get('tracks','basin')
     args.mindate = config.get('tracks','mindate')
@@ -358,6 +383,11 @@ def downloadIr():
         sampledDates.append(i)
 
     _downloadIr(args,sampledDates)
+
+def checkIr():
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+    args = parse_args(sys.argv[1:])
+    _checkIr(args)
 
 def run():
 
