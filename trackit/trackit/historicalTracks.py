@@ -49,6 +49,24 @@ basins[12] = 'Carribbean Sea'
 basins[13] = 'Gulf of Mexico'
 basins[14] = 'Missing'
 
+def getFtpInfo(args):
+    reCdOrder=re.compile('cd [0-9]{10}')
+    reFilename=re.compile('get [0-9]{3}\/goes.*\.(meta|nc)')
+    fileList = glob.glob(args.ir_filelist_dir+'/*.eml')
+    ftpInfo=[]
+    for ifile in fileList:
+        with open(ifile,'r') as f:
+            for iline in f.readlines():
+                readOrder=reCdOrder.search(iline)
+                if readOrder:
+                    topDir=readOrder.group()[3:]
+                readFile=reFilename.search(iline)
+                if readFile:
+                    midDir=readFile.group()[4:7]
+                    fileName=readFile.group()[8:]
+                    ftpInfo.append((topDir,midDir,fileName))
+    return ftpInfo
+
 def noaaFtpHeaderList(args):
     user = args.user
     pwd = args.pwd
@@ -117,6 +135,38 @@ def getDate(jday,jdayRef='1858-11-17 00:00:00'):
     date = datetime.datetime.fromordinal(int(jdayToRef)) + delta
     return date
 
+def _tarIr(args):
+
+    tarDict=dict()
+    for iInfo in getFtpInfo(args):
+        topDir = iInfo[0]
+        fileName = iInfo[2]
+        if topDir not in tarDict:
+            tarDict[topDir]=[]
+        tarDict[topDir].append(fileName)
+    
+
+    tarFile = open(args.output_dir+'/tarFile.sh','w')
+    tarFile.write("#!/bin/bash\n\n")
+    for i in tarDict.keys():
+        tarName = i+'.tar'
+        fileList = sorted(tarDict[i])
+        metaFile = fileList[-1]
+        cmd = 'tar -cf '+i+'.tar '+metaFile
+        tarFile.write(cmd+'\n')
+        for iFile in fileList:
+            tarFile.write('tar -uf '+tarName+' '+iFile+'\n')
+
+        tarFile.write('hsi -q -P "cd Data/GOES; put '+tarName+'"\n')
+        tarFile.write('rm '+tarName+'\n')
+
+        tarFile.write('\n')
+        
+
+    tarFile.close()
+    subprocess.check_call(shlex.split('chmod +x '+tarFile.name))
+    print('made: '+tarFile.name)
+
 def _checkIr(args):
 
     downloadMissingFile = open(args.output_dir+'/downloadMissing.sh','w')
@@ -124,36 +174,24 @@ def _checkIr(args):
     downloadMissingFile.write("#!/bin/bash\n\n")
     showMissingFile.write("#!/bin/bash\n\n")
 
-    reCdOrder=re.compile('cd [0-9]{10}')
-    reFilename=re.compile('get [0-9]{3}\/goes.*\.(meta|nc)')
-    fileList = glob.glob(args.ir_filelist_dir+'/*.eml')
-    for ifile in fileList:
-        with open(ifile,'r') as f:
-            #wholeFile = ''.join(f.readlines())
-            for iline in f.readlines():
-                readOrder=reCdOrder.search(iline)
-                if readOrder:
-                    topDir=readOrder.group()[3:]
-                readFile=reFilename.search(iline)
-                if readFile:
-                    midDir=readFile.group()[4:7]
-                    fileName=readFile.group()[8:]
-                if readOrder or readFile:
-                    fileExists = ['if [ ! -e '+fileName+' ]; then']
+    for iInfo in getFtpInfo(args):
+        topDir = iInfo[0]
+        midDir = iInfo[1]
+        fileName = iInfo[2]
 
-                    ftpTokenDownload = fileExists + noaaFtpHeaderList(args)
-                    ftpTokenDownload += [
-                    'cd '+topDir,
-                    'cd '+midDir,
-                    'get '+fileName,
-                    ]
-                    ftpTokenDownload += ftpFooterList() + ['fi\n']
-                    ftpTokenShow = fileExists + ['echo '+fileName] + ['fi\n']
-
-                    for i in ftpTokenDownload:
-                        downloadMissingFile.write(i+'\n')
-                    for i in ftpTokenShow:
-                        showMissingFile.write(i+'\n')
+        fileExists = ['if [ ! -e '+fileName+' ]; then']
+        ftpTokenDownload = fileExists + noaaFtpHeaderList(args)
+        ftpTokenDownload += [
+        'cd '+topDir,
+        'cd '+midDir,
+        'get '+fileName,
+        ]
+        ftpTokenDownload += ftpFooterList() + ['fi\n']
+        ftpTokenShow = fileExists + ['echo '+fileName] + ['fi\n']
+        for i in ftpTokenDownload:
+            downloadMissingFile.write(i+'\n')
+        for i in ftpTokenShow:
+            showMissingFile.write(i+'\n')
 
     downloadMissingFile.close()
     showMissingFile.close()
@@ -423,6 +461,11 @@ def downloadIr():
         sampledDates.append(i)
 
     _downloadIr(args,sampledDates)
+
+def tarIr():
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+    args = parse_args(sys.argv[1:])
+    _tarIr(args)
 
 def checkIr():
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
