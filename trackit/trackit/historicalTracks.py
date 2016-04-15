@@ -52,6 +52,7 @@ basins[14] = 'Missing'
 def getFtpInfo(args):
     reCdOrder=re.compile('cd [0-9]{10}')
     reFilename=re.compile('get [0-9]{3}\/goes.*\.(meta|nc)')
+    print('Searching in dir: '+args.ir_filelist_dir)
     fileList = glob.glob(args.ir_filelist_dir+'/*.eml')
     ftpInfo=[]
     for ifile in fileList:
@@ -154,6 +155,7 @@ def _tarIr(args):
         metaFile = fileList[-1]
         cmd = 'tar -cf '+i+'.tar '+metaFile
         tarFile.write(cmd+'\n')
+
         for iFile in fileList:
             tarFile.write('tar -uf '+tarName+' '+iFile+'\n')
 
@@ -178,6 +180,10 @@ def _checkIr(args):
         topDir = iInfo[0]
         midDir = iInfo[1]
         fileName = iInfo[2]
+        if args.ir_extensions:
+            reExt = re.compile('('+'|'.join(args.ir_extensions)+')$')
+            if not reExt.search(fileName):
+                continue
 
         fileExists = ['if [ ! -e '+fileName+' ]; then']
         ftpTokenDownload = fileExists + noaaFtpHeaderList(args)
@@ -205,12 +211,13 @@ def _downloadIr(args,dates):
     user = args.user
     pwd = args.pwd
 
-    sleepTime=3
+    sleepTime=2
 
     delta = datetime.timedelta(0,0.5*args.hourTimeWindow*3600)
 
     baseUrl = 'https://www.nsof.class.noaa.gov/saa/products'
 
+    cnt=0
     for i in dates:
 
         start_date = i-delta
@@ -219,7 +226,7 @@ def _downloadIr(args,dates):
         end_date_string = end_date.strftime('%Y-%m-%d')
         start_time_string = start_date.strftime('%H:%M:%S')
         end_time_string = end_date.strftime('%H:%M:%S')
-        comment_string = start_date_string+' '+start_time_string+' '+end_date_string+' '+end_time_string
+        comment_string = args.basin+' '+start_date_string+' '+start_time_string+' '+end_date_string+' '+end_time_string
 
         print('Doing: '+comment_string)
 
@@ -406,6 +413,9 @@ def _historical_tracks(args):
         figFormat='png'
         filename='_'.join(['wind',args.basin,args.mindate,args.maxdate])+'.'+figFormat
         plt.title(filename+'\nMin Max Wind [kt]: '+str(maxWind))
+        if args.minLon and args.maxLon:
+            plt.xlim(args.minLon,args.maxLon)
+        plt.title(filename+'\nMin Max Wind [kt]: '+str(maxWind))
         plt.savefig(filename,format=figFormat,dpi=300)
         print('Made file: '+filename)
 
@@ -438,11 +448,17 @@ def parse_args(args):
     args.input_file = config.get('IO','input_file')
     args.output_dir = config.get('IO','output_dir')
     args.ir_filelist_dir= config.get('IO','ir_filelist_dir')
+    args.ir_extensions = config.get('IO','ir_extensions')
+    args.ir_extensions = args.ir_extensions.split(',') if args.ir_extensions != '' else None
     args.plot = args.plot or config.getboolean('IO','plot')
     args.basin = config.get('tracks','basin')
     args.mindate = config.get('tracks','mindate')
     args.maxdate = config.get('tracks','maxdate')
     args.minMaxWind = config.getfloat('tracks','minMaxWind')
+    args.minLon = config.get('tracks','minLon')
+    args.maxLon = config.get('tracks','maxLon')
+    args.minLon = float(args.minLon) if args.minLon != '' else None
+    args.maxLon = float(args.maxLon) if args.maxLon != '' else None
     args.nPtsCyclone = config.getint('tracks','nPtsCyclone')
     args.nDeltaPtsCyclone = config.getint('tracks','nDeltaPtsCyclone')
     args.hourTimeWindow = config.getint('tracks','hourTimeWindow')

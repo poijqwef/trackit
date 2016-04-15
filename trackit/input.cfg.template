@@ -5,6 +5,8 @@ seed=
 input_file=
 input_file_readme=
 output_dir=
+ir_filelist_dir=
+ir_extensions=
 plot=
 
 [noaa]
@@ -15,6 +17,8 @@ pwd=
 mindate=
 maxdate=
 basin=
+minLon=
+maxLon=
 minMaxWind=
 nPtsCyclone=
 nDeltaPtsCyclone=
